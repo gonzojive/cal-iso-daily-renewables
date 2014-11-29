@@ -17,12 +17,15 @@ class HourlyAverageOutput(object):
         self.types_ = types
         self.outputs_ = outputs
 
+    def OutputForType(self, t):
+        return self.outputs_[self.types_.index(t)]
+
 class Report(object):
     def __init__(self, renewablesHourly, overallHourly):
         self.renewablesHourly_ = renewablesHourly
         self.overallHourly_ = overallHourly
 
-    def Output(self):
+    def PrintForDebugging(self):
         def pr(arr):
             for x in arr:
                 print "%s %s %s %s" % (x.date_, x.hour_, x.types_, x.outputs_)
@@ -49,4 +52,13 @@ def parseDailyTXT(txt):
                   [x for x in parseTypesAndOutputs(date, lines[29:29+25])])
 
 def example():
-    parseDailyTXT(downloadDailyTXT(2014, 10, 31)).Output()
+    src = "SOLAR PV"  # "WIND TOTAL"
+    for day in xrange(1, 32):
+        report = parseDailyTXT(downloadDailyTXT(2014, 10, day))
+        print "%s output on 10/%02d: %s" % (
+            src,
+            day,
+            " ".join(['{:>5}'.format(str(row.OutputForType(src)))
+                      for row in report.renewablesHourly_]))
+
+example()
