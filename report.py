@@ -70,7 +70,7 @@ def parseDailyTXT(txt):
                   [x for x in parseTypesAndOutputs(date, lines[29:29+25])])
 
 
-START="2013/12/01"
+START="2013/04/15"
 END="2014/12/01"
 DATEFORMAT="%Y/%m/%d"
 
@@ -78,7 +78,7 @@ def daterange(s, e):
     for i in range((e - s).days):
         yield s + datetime.timedelta(i)
 
-def example():
+def csvexample():
     print "Time,Wind,Solar,Wind+Solar,Total"
     for d in daterange(datetime.datetime.strptime(START, DATEFORMAT),
                        datetime.datetime.strptime(END, DATEFORMAT)):
@@ -98,13 +98,74 @@ def example():
                 str(wind+solar),
                 str(report.overallHourly_[n].Total()))
 
-    # src = "SOLAR PV"  # "WIND TOTAL"
-    # for day in xrange(1, 32):
-    #     report = parseDailyTXT(downloadDailyTXT(2014, 10, day))
-    #     print "%s output on 10/%02d: %s" % (
-    #         src,
-    #         day,
-    #         " ".join(['{:>5}'.format(str(row.OutputForType(src)))
-    #                   for row in report.renewablesHourly_]))
+def rollingMean(numbers, windowSize):
+    def gen():
+        total = 0
+        for i in xrange(0, len(numbers)):
+            total += numbers[i]
+            if i - windowSize >= 0:
+                total -= numbers[i - windowSize]
+            if i + 1 < windowSize:
+                yield None
+            else:
+                yield total / windowSize
+    return [x for x in gen()]
 
-example()
+def graph():
+    print "Time,Wind,Solar,Wind+Solar,Total"
+    def data():
+        for d in daterange(datetime.datetime.strptime(START, DATEFORMAT),
+                           datetime.datetime.strptime(END, DATEFORMAT)):
+            report = None
+            try:
+                report = parseDailyTXT(downloadDailyTXT(d.year, d.month, d.day))
+            except urllib2.HTTPError:
+                continue
+            for n in xrange(0, 24):
+                t = d + datetime.timedelta(hours=n)
+                solar = report.renewablesHourly_[n].OutputForType("SOLAR PV")
+                wind = report.renewablesHourly_[n].OutputForType("WIND TOTAL")
+                yield (
+                    t,
+                    wind,
+                    solar,
+                    wind+solar,
+                    report.overallHourly_[n].Total())
+    tuples = [x for x in data()]
+
+    print "Gathered data, proceeding to plot."
+    import plotly
+    plotly.plotly.sign_in("username", "access code")
+
+    scatters = [
+            plotly.graph_objs.Scatter(
+                name="Wind",
+                x=[tup[0] for tup in tuples],
+                y=[tup[1] for tup in tuples]
+                ),
+            plotly.graph_objs.Scatter(
+                name="Wind, 3-hour average",
+                x=[tup[0] for tup in tuples],
+                y=rollingMean([tup[1] for tup in tuples], 3)
+                ),
+            plotly.graph_objs.Scatter(
+                name="Wind, 2-day average",
+                x=[tup[0] for tup in tuples],
+                y=rollingMean([tup[1] for tup in tuples], 48)
+                ),
+            plotly.graph_objs.Scatter(
+                name="Wind, 7-day average",
+                x=[tup[0] for tup in tuples],
+                y=rollingMean([tup[1] for tup in tuples], 7*24)
+                ),
+            plotly.graph_objs.Scatter(
+                name="Solar, 2-day average",
+                x=[tup[0] for tup in tuples],
+                y=rollingMean([tup[2] for tup in tuples], 48)
+                )
+            ]
+    d = plotly.graph_objs.Data(scatters[3:])
+    plotly.plotly.plot(d, filename='testing-caliso-hourly')
+    
+
+graph()

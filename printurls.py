@@ -3,8 +3,8 @@
 import datetime
 
 URL_FORMAT = "http://content.caiso.com/green/renewrpt/%Y%m%d_DailyRenewablesWatch.txt"
-START="2014/05/20"
-END="2014/05/30"
+START="2010/04/20"
+END="2014/12/03"
 DATEFORMAT="%Y/%m/%d"
 
 def daterange(s, e):
